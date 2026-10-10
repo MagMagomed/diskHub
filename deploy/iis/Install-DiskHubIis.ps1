@@ -141,6 +141,17 @@ try {
   Start-Service -Name WAS
   Start-Service -Name W3SVC
 
+  $lanIpAddress = Get-NetIPConfiguration |
+    Where-Object { $_.IPv4DefaultGateway } |
+    ForEach-Object { $_.IPv4Address.IPAddress } |
+    Where-Object {
+      $_ -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)'
+    } |
+    Select-Object -First 1
+  if (-not $lanIpAddress) {
+    throw 'No private IPv4 address with a default gateway was found. Connect this server to the LAN and retry.'
+  }
+
   $expectedBinding = "*:${SitePort}:localhost"
   $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
   if ($existingSite) {
@@ -287,7 +298,12 @@ try {
       $_.Issuer -eq $rootCertificate.Subject -and
       $_.HasPrivateKey -and
       $_.NotAfter -gt (Get-Date).AddDays(30) -and
-      ($_.DnsNameList | Where-Object { $_.Unicode -ieq $siteHostName })
+      ($_.DnsNameList | Where-Object { $_.Unicode -ieq $siteHostName }) -and
+      ($_.Extensions |
+        Where-Object {
+          $_.Oid.Value -eq '2.5.29.17' -and
+          $_.Format($true) -match ("IP Address=\s*" + [regex]::Escape($lanIpAddress))
+        })
     } |
     Sort-Object NotAfter -Descending |
     Select-Object -First 1
@@ -295,7 +311,6 @@ try {
     $serverCertificate = New-SelfSignedCertificate `
       -Type Custom `
       -Subject "CN=$siteHostName" `
-      -DnsName $siteHostName `
       -Signer $rootCertificate `
       -KeyAlgorithm RSA `
       -KeyLength 2048 `
@@ -303,7 +318,10 @@ try {
       -KeyUsage DigitalSignature, KeyEncipherment `
       -CertStoreLocation Cert:\LocalMachine\My `
       -NotAfter (Get-Date).AddYears(2) `
-      -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.1')
+      -TextExtension @(
+        "2.5.29.17={text}DNS=$siteHostName&IPAddress=$lanIpAddress",
+        '2.5.29.37={text}1.3.6.1.5.5.7.3.1'
+      )
   }
   $certificateChain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
   $certificateChain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
@@ -335,6 +353,23 @@ try {
     $httpsBinding.RemoveSslCertificate()
   }
   $httpsBinding.AddSslCertificate($serverCertificate.Thumbprint, 'My')
+
+  $ipHttpsBinding = Get-WebBinding -Name $siteName -Protocol https | Where-Object {
+    $_.bindingInformation -eq '*:443:'
+  } | Select-Object -First 1
+  if (-not $ipHttpsBinding) {
+    New-WebBinding -Name $siteName -Protocol https -Port 443 -SslFlags 0 | Out-Null
+    $ipHttpsBinding = Get-WebBinding -Name $siteName -Protocol https | Where-Object {
+      $_.bindingInformation -eq '*:443:'
+    } | Select-Object -First 1
+  }
+  if (-not $ipHttpsBinding) {
+    throw 'Could not create the IP-address HTTPS binding.'
+  }
+  if ($ipHttpsBinding.certificateHash) {
+    $ipHttpsBinding.RemoveSslCertificate()
+  }
+  $ipHttpsBinding.AddSslCertificate($serverCertificate.Thumbprint, 'My')
 
   $firewallRule = Get-NetFirewallRule -DisplayName $firewallRuleName -ErrorAction SilentlyContinue
   if ($firewallRule) {
@@ -453,17 +488,19 @@ try {
   if ($LASTEXITCODE -ne 0 -or ($httpsPage -join "`n") -notmatch '<title>DiskHub') {
     throw 'The HTTPS IIS site did not return the DiskHub application page.'
   }
-
-  Write-Output "DiskHub is published locally at http://localhost:$SitePort/ and https://$siteHostName/."
-  Write-Output "Configure your LAN DNS to resolve $siteHostName to this server's LAN IP address."
-  $lanAddresses = Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred |
-    Where-Object {
-      $_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)'
-    } |
-    ForEach-Object { "$($_.InterfaceAlias): $($_.IPAddress)" }
-  if ($lanAddresses) {
-    Write-Output "Private IPv4 addresses (choose the LAN adapter for your DNS entry): $($lanAddresses -join '; ')"
+  $httpsIpHealth = & $curl.Source `
+    --ssl-no-revoke `
+    --fail `
+    --silent `
+    --show-error `
+    "https://$lanIpAddress/api/health"
+  if ($LASTEXITCODE -ne 0 -or ($httpsIpHealth | ConvertFrom-Json).status -ne 'ok') {
+    throw "The HTTPS IIS API is not available by LAN IP address $lanIpAddress."
   }
+
+  Write-Output "DiskHub is published locally at http://localhost:$SitePort/, https://$siteHostName/, and https://$lanIpAddress/."
+  Write-Output "The LAN IP address used by this installation is $lanIpAddress."
+  Write-Output "For the domain URL, configure LAN DNS so $siteHostName resolves to $lanIpAddress."
   Write-Output "Install this root certificate on each client: $rootCertificatePath"
   Write-Output "The IIS site serves static files from $siteRoot."
   Write-Output "The Node API is listening only on 127.0.0.1:3001."

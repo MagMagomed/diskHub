@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { isIPv4 } from 'node:net';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -81,7 +82,10 @@ function sessionForRequest(req) {
 }
 
 function setSessionCookie(req, res, sessionId) {
-  const secure = req.hostname.toLowerCase() === 'diskhub.com' ? '; Secure' : '';
+  const hostname = req.hostname.toLowerCase();
+  const secure = hostname === 'diskhub.com' || (isIPv4(hostname) && !hostname.startsWith('127.'))
+    ? '; Secure'
+    : '';
   res.setHeader(
     'Set-Cookie',
     `${sessionCookie}=${sessionId}; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=${Math.floor(sessionLifetime / 1000)}`,
@@ -89,7 +93,10 @@ function setSessionCookie(req, res, sessionId) {
 }
 
 function clearSessionCookie(req, res) {
-  const secure = req.hostname.toLowerCase() === 'diskhub.com' ? '; Secure' : '';
+  const hostname = req.hostname.toLowerCase();
+  const secure = hostname === 'diskhub.com' || (isIPv4(hostname) && !hostname.startsWith('127.'))
+    ? '; Secure'
+    : '';
   res.setHeader(
     'Set-Cookie',
     `${sessionCookie}=; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=0`,
@@ -299,6 +306,74 @@ app.patch('/api/auth/profile', requireUser, async (req, res, next) => {
     });
     res.json(publicUser(updatedUser));
   } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/auth/password', requireUser, async (req, res, next) => {
+  const currentPassword = typeof req.body?.currentPassword === 'string'
+    ? req.body.currentPassword
+    : '';
+  const newPassword = typeof req.body?.newPassword === 'string'
+    ? req.body.newPassword
+    : '';
+
+  if (newPassword.length < 10 || newPassword.length > 128) {
+    res.status(400).json({ error: 'Новый пароль должен содержать от 10 до 128 символов.' });
+    return;
+  }
+
+  const currentSession = sessionForRequest(req);
+  if (!currentSession) {
+    res.status(401).json({ error: 'Необходим вход в аккаунт.' });
+    return;
+  }
+
+  try {
+    await enqueueAccountOperation(async () => {
+      const account = users.get(req.user.id);
+      if (!account) {
+        const error = new Error('Аккаунт не найден.');
+        error.status = 404;
+        throw error;
+      }
+
+      const currentHash = await scrypt(
+        currentPassword.slice(0, 128),
+        Buffer.from(account.salt, 'hex'),
+        64,
+      );
+      if (!crypto.timingSafeEqual(currentHash, Buffer.from(account.passwordHash, 'hex'))) {
+        const error = new Error('Текущий пароль указан неверно.');
+        error.status = 401;
+        throw error;
+      }
+
+      const salt = crypto.randomBytes(16);
+      const passwordHash = await scrypt(newPassword, salt, 64);
+      const updatedAccount = {
+        ...account,
+        salt: salt.toString('hex'),
+        passwordHash: passwordHash.toString('hex'),
+      };
+      const nextUsers = new Map(users);
+      nextUsers.set(updatedAccount.id, updatedAccount);
+      await persistUsers(nextUsers);
+      users = nextUsers;
+
+      for (const [sessionId, session] of sessions) {
+        if (session.userId === updatedAccount.id && session !== currentSession) {
+          sessions.delete(sessionId);
+        }
+      }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    if (error.status === 401 || error.status === 404) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });

@@ -255,13 +255,19 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
 .auth-privacy .status-dot { flex: 0 0 7px; }
 .auth-loading { color: #76847b; font-size: 13px; }
 .profile-dialog-backdrop { align-items: center; background: rgba(32, 39, 45, .34); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 5; }
-.profile-dialog { background: #fff; border: 1px solid #edf0ee; border-radius: 12px; box-shadow: 0 20px 70px rgba(28, 40, 33, .2); max-width: 420px; padding: 31px; position: relative; width: 100%; }
+.profile-dialog { background: #fff; border: 1px solid #edf0ee; border-radius: 12px; box-shadow: 0 20px 70px rgba(28, 40, 33, .2); max-height: calc(100vh - 40px); max-width: 420px; overflow-y: auto; padding: 31px; position: relative; width: 100%; }
 .profile-dialog-close { align-items: center; background: transparent; border: 0; border-radius: 6px; color: #89938d; cursor: pointer; display: flex; height: 31px; justify-content: center; position: absolute; right: 15px; top: 15px; width: 31px; }
 .profile-dialog-close:hover { background: #f1f4f2; color: #48574e; }
 .profile-dialog h2 { color: #30383d; font-family: 'Manrope', sans-serif; font-size: 20px; letter-spacing: -.5px; margin: 0 0 8px; }
 .profile-dialog-description { color: #899298; font-size: 11px; line-height: 1.6; margin-bottom: 23px; }
 .profile-input-hint { color: #9aa29d; font-size: 9px; line-height: 1.5; margin: -10px 0 17px; }
 .profile-dialog-actions { align-items: center; display: flex; gap: 10px; justify-content: flex-end; margin-top: 1px; }
+.password-change-form { border-top: 1px solid #eff1ef; margin-top: 24px; padding-top: 21px; }
+.password-change-form h3 { color: #30383d; font-family: 'Manrope', sans-serif; font-size: 15px; margin: 0 0 17px; }
+.password-change-form .profile-input-hint { margin: 0 0 14px; }
+.password-change-form .auth-error { margin: 0 0 14px; }
+.password-change-notice { background: #eff7f1; border-radius: 6px; color: #477a65; font-size: 11px; line-height: 1.5; margin-bottom: 14px; padding: 9px 10px; }
+.password-change-form .profile-dialog-actions { margin-top: 0; }
 .profile-cancel-button { background: transparent; border: 0; border-radius: 6px; color: #727d76; cursor: pointer; font-size: 11px; min-height: 38px; padding: 0 12px; }
 .profile-cancel-button:hover { background: #f2f5f3; }
 .profile-dialog .auth-error { margin: 0 0 14px; }
