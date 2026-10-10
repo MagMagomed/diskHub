@@ -154,6 +154,7 @@ try {
 
   $expectedBinding = "*:${SitePort}:localhost"
   $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+  $existingAppPool = Get-Item "IIS:\AppPools\$siteName" -ErrorAction SilentlyContinue
   if ($existingSite) {
     $siteBindings = @(Get-WebBinding -Name $siteName)
     $existingBinding = $siteBindings | Where-Object {
@@ -167,8 +168,21 @@ try {
       throw "The existing IIS site $siteName points to a different folder. It was left unchanged."
     }
   } else {
-    if (Test-Path "IIS:\AppPools\$siteName") {
-      throw "An unrelated IIS application pool named $siteName exists. The existing pool was left unchanged."
+    if ($existingAppPool) {
+      $poolSites = @(Get-Website | Where-Object { $_.ApplicationPool -eq $siteName })
+      if ($poolSites.Count -gt 0) {
+        $siteNames = ($poolSites | ForEach-Object { $_.Name }) -join ', '
+        throw "The IIS application pool '$siteName' is already used by site(s): $siteNames. The existing pool and sites were left unchanged."
+      }
+
+      $poolConfiguration = Get-ItemProperty "IIS:\AppPools\$siteName"
+      if (
+        $poolConfiguration.managedRuntimeVersion -ne '' -or
+        $poolConfiguration.processModel.identityType -ne 'ApplicationPoolIdentity'
+      ) {
+        throw "An unused IIS application pool named '$siteName' exists with unexpected settings. The pool was left unchanged."
+      }
+      Write-Output "Reusing the unused DiskHub application pool left behind after the IIS site was removed."
     }
     $portBinding = Get-WebBinding | Where-Object {
       $_.bindingInformation -match ("^\*:" + $SitePort + ':')
@@ -331,9 +345,11 @@ try {
   }
 
   if (-not $existingSite) {
-    New-WebAppPool -Name $siteName | Out-Null
-    Set-ItemProperty "IIS:\AppPools\$siteName" -Name managedRuntimeVersion -Value ''
-    Set-ItemProperty "IIS:\AppPools\$siteName" -Name processModel.identityType -Value ApplicationPoolIdentity
+    if (-not $existingAppPool) {
+      New-WebAppPool -Name $siteName | Out-Null
+      Set-ItemProperty "IIS:\AppPools\$siteName" -Name managedRuntimeVersion -Value ''
+      Set-ItemProperty "IIS:\AppPools\$siteName" -Name processModel.identityType -Value ApplicationPoolIdentity
+    }
     New-Website -Name $siteName -PhysicalPath $siteRoot -Port $SitePort -HostHeader localhost -ApplicationPool $siteName | Out-Null
   }
 

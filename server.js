@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { isIPv4 } from 'node:net';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import multer from 'multer';
@@ -16,12 +17,15 @@ const port = Number(process.env.PORT) || 3001;
 const app = express();
 const scrypt = promisify(crypto.scrypt);
 const sessionLifetime = 7 * 24 * 60 * 60 * 1000;
+const uploadChunkSize = 32 * 1024 * 1024;
+const uploadSessionLifetime = 24 * 60 * 60 * 1000;
 const sessionCookie = 'diskhub_session';
 const userRoles = {
   SYSTEM_CUSTOMIZER: 'System Customizer',
   CUSTOMER: 'Customer',
 };
 const sessions = new Map();
+const uploadSessions = new Map();
 let users = new Map();
 let accountOperations = Promise.resolve();
 
@@ -170,10 +174,6 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   defParamCharset: 'utf8',
-  limits: {
-    fileSize: 100 * 1024 * 1024,
-    files: 20,
-  },
 });
 
 app.use(express.json({ limit: '10kb' }));
@@ -538,7 +538,144 @@ app.get('/api/files', requireUser, async (req, res, next) => {
   }
 });
 
-app.post('/api/files', requireUser, upload.array('files', 20), (req, res) => {
+app.post('/api/uploads', requireUser, async (req, res, next) => {
+  const fileName = safeOriginalName(req.body?.fileName);
+  const fileSize = req.body?.fileSize;
+  if (
+    typeof req.body?.fileName !== 'string' ||
+    !Number.isSafeInteger(fileSize) ||
+    fileSize < 0
+  ) {
+    res.status(400).json({ error: 'Некорректные данные файла.' });
+    return;
+  }
+
+  try {
+    const now = Date.now();
+    for (const [uploadId, session] of uploadSessions) {
+      if (session.expiresAt <= now && !session.inFlight) {
+        await fs.promises.rm(session.filePath, { force: true });
+        uploadSessions.delete(uploadId);
+      }
+    }
+
+    const uploadId = crypto.randomUUID();
+    const incomingDir = path.join(uploadsDir, req.user.id, '.incoming');
+    await fs.promises.mkdir(incomingDir, { recursive: true });
+    const filePath = path.join(incomingDir, `${uploadId}.part`);
+    await fs.promises.writeFile(filePath, Buffer.alloc(0), { flag: 'wx' });
+    uploadSessions.set(uploadId, {
+      userId: req.user.id,
+      fileName,
+      fileSize,
+      filePath,
+      receivedBytes: 0,
+      inFlight: false,
+      expiresAt: now + uploadSessionLifetime,
+    });
+    res.status(201).json({ uploadId, chunkSize: uploadChunkSize });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/uploads/:uploadId/chunk', requireUser, async (req, res, next) => {
+  const session = uploadSessions.get(req.params.uploadId);
+  if (!session || session.userId !== req.user.id || session.expiresAt <= Date.now()) {
+    res.status(404).json({ error: 'Сессия загрузки не найдена или истекла.' });
+    return;
+  }
+  if (session.inFlight) {
+    res.status(409).json({ error: 'Предыдущая часть файла ещё загружается.' });
+    return;
+  }
+
+  const contentLength = Number(req.headers['content-length']);
+  const expectedLength = Math.min(uploadChunkSize, session.fileSize - session.receivedBytes);
+  if (
+    req.headers['content-type'] !== 'application/octet-stream' ||
+    !Number.isSafeInteger(contentLength) ||
+    contentLength !== expectedLength ||
+    contentLength <= 0 ||
+    session.receivedBytes + contentLength > session.fileSize
+  ) {
+    res.status(400).json({ error: 'Размер или формат части файла некорректен.' });
+    return;
+  }
+
+  session.inFlight = true;
+  try {
+    await pipeline(
+      req,
+      fs.createWriteStream(session.filePath, {
+        flags: 'r+',
+        start: session.receivedBytes,
+      }),
+    );
+    session.receivedBytes += contentLength;
+    session.expiresAt = Date.now() + uploadSessionLifetime;
+    res.json({ receivedBytes: session.receivedBytes });
+  } catch (error) {
+    try {
+      await fs.promises.truncate(session.filePath, session.receivedBytes);
+    } catch (truncateError) {
+      console.error('Could not roll back an incomplete upload chunk.', truncateError);
+    }
+    if (!req.destroyed) next(error);
+  } finally {
+    session.inFlight = false;
+  }
+});
+
+app.post('/api/uploads/:uploadId/complete', requireUser, async (req, res, next) => {
+  const session = uploadSessions.get(req.params.uploadId);
+  if (!session || session.userId !== req.user.id || session.expiresAt <= Date.now()) {
+    res.status(404).json({ error: 'Сессия загрузки не найдена или истекла.' });
+    return;
+  }
+  if (session.inFlight || session.receivedBytes !== session.fileSize) {
+    res.status(409).json({ error: 'Файл загружен не полностью.' });
+    return;
+  }
+
+  const fileId = `${crypto.randomUUID()}__${session.fileName}`;
+  const filePath = path.join(uploadsDir, req.user.id, fileId);
+  try {
+    await fs.promises.rename(session.filePath, filePath);
+    uploadSessions.delete(req.params.uploadId);
+    const stats = await fs.promises.stat(filePath);
+    res.status(201).json({
+      id: fileId,
+      name: session.fileName,
+      size: stats.size,
+      uploadedAt: stats.mtime.toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/uploads/:uploadId', requireUser, async (req, res, next) => {
+  const session = uploadSessions.get(req.params.uploadId);
+  if (!session || session.userId !== req.user.id) {
+    res.sendStatus(404);
+    return;
+  }
+  if (session.inFlight) {
+    res.status(409).json({ error: 'Нельзя отменить загрузку, пока передаётся часть файла.' });
+    return;
+  }
+
+  try {
+    await fs.promises.rm(session.filePath, { force: true });
+    uploadSessions.delete(req.params.uploadId);
+    res.sendStatus(204);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/files', requireUser, upload.array('files'), (req, res) => {
   res.status(201).json(
     req.files.map((file) => ({
       id: file.filename,
@@ -596,13 +733,7 @@ if (fs.existsSync(distDir)) {
 
 app.use((error, _req, res, _next) => {
   if (error instanceof multer.MulterError) {
-    const message =
-      error.code === 'LIMIT_FILE_SIZE'
-        ? 'Файл превышает ограничение 100 МБ.'
-        : error.code === 'LIMIT_FILE_COUNT'
-          ? 'За один раз можно загрузить не больше 20 файлов.'
-          : error.message;
-    res.status(400).json({ error: message });
+    res.status(400).json({ error: error.message });
     return;
   }
   if (error.status) {
@@ -633,6 +764,9 @@ async function startServer() {
     ))) {
       await persistUsers(users);
     }
+    await Promise.all([...users.keys()].map((userId) => (
+      fs.promises.rm(path.join(uploadsDir, userId, '.incoming'), { recursive: true, force: true })
+    )));
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }

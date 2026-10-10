@@ -663,6 +663,7 @@ function App() {
   const [query, setQuery] = useState('');
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
@@ -773,19 +774,74 @@ function App() {
     setUploading(true);
     setError('');
     setNotice('');
-    const formData = new FormData();
-    selectedFiles.forEach((file) => formData.append('files', file));
-
+    let currentUploadId = '';
+    let currentFileName = '';
     try {
-      const response = await fetch('/api/files', { method: 'POST', body: formData });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Не удалось загрузить файлы.');
-      setNotice(`${result.length} ${result.length === 1 ? 'файл загружен' : 'файлы загружены'}`);
+      for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex += 1) {
+        const file = selectedFiles[fileIndex];
+        currentFileName = file.name;
+        const startResponse = await fetch('/api/uploads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: file.name, fileSize: file.size }),
+        });
+        const startResult = await startResponse.json();
+        if (!startResponse.ok) {
+          throw new Error(startResult.error || 'Не удалось начать загрузку файла.');
+        }
+        currentUploadId = startResult.uploadId;
+
+        for (let offset = 0; offset < file.size; offset += startResult.chunkSize) {
+          const chunk = file.slice(offset, Math.min(offset + startResult.chunkSize, file.size));
+          const chunkResponse = await fetch(
+            `/api/uploads/${encodeURIComponent(currentUploadId)}/chunk`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/octet-stream' },
+              body: chunk,
+            },
+          );
+          const chunkResult = await chunkResponse.json();
+          if (!chunkResponse.ok) {
+            throw new Error(chunkResult.error || 'Не удалось загрузить часть файла.');
+          }
+          const percent = file.size
+            ? Math.floor((chunkResult.receivedBytes / file.size) * 100)
+            : 100;
+          setUploadProgress(
+            `Загрузка «${file.name}» (${fileIndex + 1}/${selectedFiles.length}): ${percent}%`,
+          );
+        }
+
+        const completeResponse = await fetch(
+          `/api/uploads/${encodeURIComponent(currentUploadId)}/complete`,
+          { method: 'POST' },
+        );
+        const completeResult = await completeResponse.json();
+        if (!completeResponse.ok) {
+          throw new Error(completeResult.error || 'Не удалось завершить загрузку файла.');
+        }
+        currentUploadId = '';
+      }
+      setNotice(`${selectedFiles.length} ${selectedFiles.length === 1 ? 'файл загружен' : 'файлы загружены'}`);
       await loadFiles();
     } catch (uploadError) {
-      setError(uploadError.message);
+      if (currentUploadId) {
+        try {
+          await fetch(`/api/uploads/${encodeURIComponent(currentUploadId)}`, { method: 'DELETE' });
+        } catch (abortError) {
+          console.error('Could not cancel the incomplete file upload.', abortError);
+        }
+      }
+      await loadFiles();
+      setError(
+        currentFileName
+          ? `Не удалось загрузить «${currentFileName}»: ${uploadError.message}`
+          : uploadError.message,
+      );
     } finally {
       setUploading(false);
+      setUploadProgress('');
       if (inputRef.current) inputRef.current.value = '';
     }
   }
@@ -928,7 +984,11 @@ function App() {
               <strong>{dragging ? 'Отпустите файлы, чтобы загрузить' : 'Перетащите файлы сюда'}</strong>
               <span>или <button className="text-button" onClick={() => inputRef.current?.click()}>выберите на устройстве</button></span>
             </div>
-            <span className="dropzone-limit">До 20 файлов · 100 МБ на файл</span>
+            <span className="dropzone-limit">
+              {uploading
+                ? uploadProgress
+                : 'Без лимита на размер и количество файлов · ограничено свободным местом'}
+            </span>
           </section>
 
           {(notice || error) && (
