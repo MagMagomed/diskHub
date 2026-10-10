@@ -222,11 +222,7 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
                       <PhotoPreview
                         name={file.name}
                         imageUrl={adminApi.previewUrl(file.userId, file.id)}
-                        downloadUrl={adminApi.downloadUrl(file.userId, file.id)}
-                        deleteLabel={`Удалить ${file.name} пользователя ${file.username}`}
-                        deleteDisabled={deletingId === file.id}
                         onOpen={() => setViewedPhoto(file)}
-                        onDelete={() => deleteFile(file)}
                       />
                     ) : (
                       <div className="file-preview">
@@ -322,7 +318,10 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
       )}
       {viewedPhoto && (
         <PhotoViewer
+          deleteDisabled={deletingId === viewedPhoto.id}
+          getDownloadUrl={(photo) => adminApi.downloadUrl(photo.userId, photo.id)}
           getImageUrl={getPhotoUrl}
+          onDelete={deleteFile}
           onPhotoChange={changeViewedPhoto}
           onClose={closePhotoViewer}
           ownerLabel={`${viewedPhoto.username} · ${viewedPhoto.email}`}

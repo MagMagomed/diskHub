@@ -6,14 +6,18 @@ import {
   getSwipeOffset,
   getSwipeTargetOffset,
 } from '../utils/photoViewer.js';
+import { isShortPhotoTap } from '../utils/photoActions.js';
 
 function PhotoViewer({
   photos,
   photoId,
   getImageUrl,
+  getDownloadUrl,
   onPhotoChange,
+  onDelete,
   onClose,
   ownerLabel = '',
+  deleteDisabled = false,
 }) {
   const closeButtonRef = useRef(null);
   const touchStartRef = useRef(null);
@@ -22,6 +26,7 @@ function PhotoViewer({
   const transitionTimeoutRef = useRef(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [settling, setSettling] = useState(false);
+  const [actionsVisible, setActionsVisible] = useState(false);
   const photoIndex = getPhotoIndex(photos, photoId);
   const photo = photos[photoIndex];
 
@@ -67,6 +72,10 @@ function PhotoViewer({
     };
   }, []);
 
+  useEffect(() => {
+    setActionsVisible(false);
+  }, [photoId]);
+
   if (!photo) return null;
 
   const previousPhotoId = getAdjacentPhotoId(photos, photoId, -1);
@@ -83,7 +92,7 @@ function PhotoViewer({
       return;
     }
     const [touch] = event.touches;
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: event.timeStamp };
   }
 
   function handleTouchMove(event) {
@@ -108,6 +117,11 @@ function PhotoViewer({
 
     const [touch] = event.changedTouches;
     const end = { x: touch.clientX, y: touch.clientY };
+    if (isShortPhotoTap(start, end, event.timeStamp - start.time)) {
+      setDragOffset(0);
+      setActionsVisible(true);
+      return;
+    }
     const targetOffset = getSwipeTargetOffset(
       start,
       end,
@@ -203,7 +217,7 @@ function PhotoViewer({
           </button>
         </div>
         <div
-          className="photo-viewer-stage"
+          className={`photo-viewer-stage${actionsVisible ? ' photo-actions-visible' : ''}`}
           ref={stageRef}
           onTouchCancel={cancelGesture}
           onTouchEnd={handleTouchEnd}
@@ -249,6 +263,24 @@ function PhotoViewer({
               type="button"
             >
               <Icon name="chevron-right" size={25} />
+            </button>
+          </div>
+          <div className="card-actions photo-viewer-actions">
+            <a
+              aria-label={`Скачать ${photo.name}`}
+              href={getDownloadUrl(photo)}
+              title="Скачать"
+            >
+              <Icon name="download" size={19} />
+            </a>
+            <button
+              aria-label={`Удалить ${photo.name}${ownerLabel ? ` пользователя ${ownerLabel}` : ''}`}
+              disabled={deleteDisabled}
+              onClick={() => onDelete(photo)}
+              title="Удалить"
+              type="button"
+            >
+              <Icon name="trash" size={19} />
             </button>
           </div>
         </div>

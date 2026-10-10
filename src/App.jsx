@@ -346,9 +346,7 @@ function App() {
                     <PhotoPreview
                       name={file.name}
                       imageUrl={filesApi.previewUrl(file.id)}
-                      downloadUrl={filesApi.downloadUrl(file.id)}
                       onOpen={() => setViewedPhotoId(file.id)}
-                      onDelete={() => deleteFile(file)}
                     />
                   ) : (
                     <div className="file-preview">
@@ -456,7 +454,9 @@ function App() {
         )}
         {viewedPhotoId && (
           <PhotoViewer
+            getDownloadUrl={(photo) => filesApi.downloadUrl(photo.id)}
             getImageUrl={getPhotoUrl}
+            onDelete={deleteFile}
             onPhotoChange={setViewedPhotoId}
             onClose={closePhotoViewer}
             photoId={viewedPhotoId}

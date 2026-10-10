@@ -18,9 +18,3 @@ export function isShortPhotoTap(start, end, duration) {
 
   return Math.hypot(end.x - start.x, end.y - start.y) <= maxPhotoTapDistance;
 }
-
-export function getPhotoTapAction(pointerType, isTap, actionsVisible) {
-  if (pointerType !== 'touch') return 'open';
-  if (!isTap) return null;
-  return actionsVisible ? 'open' : 'show-actions';
-}

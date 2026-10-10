@@ -189,6 +189,7 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
 .photo-badge { align-items: center; background: rgba(255,255,255,.88); border-radius: 5px; bottom: 8px; color: #648c77; display: flex; height: 25px; justify-content: center; left: 8px; position: absolute; width: 25px; }
 @media (hover: hover) and (pointer: fine) {
   .file-card:hover .card-actions { opacity: 1; transform: translateY(0); }
+  .photo-viewer-stage:hover .photo-viewer-actions { opacity: 1; transform: translateY(0); pointer-events: auto; }
 }
 .file-details { display: flex; flex-direction: column; gap: 6px; padding: 10px 2px 0; }
 .file-details strong { color: #485158; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -210,6 +211,12 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
 .photo-viewer-controls { align-items: center; display: flex; inset: 0; justify-content: space-between; padding: 0 12px; pointer-events: none; position: absolute; }
 .photo-viewer-nav { border-radius: 50%; flex: 0 0 44px; height: 44px; pointer-events: auto; }
 .photo-viewer-nav:disabled { cursor: default; opacity: .28; }
+.photo-viewer-actions { right: 16px; top: 16px; z-index: 3; }
+.photo-viewer-actions a, .photo-viewer-actions button { background: rgba(24,30,27,.72); border: 1px solid rgba(255,255,255,.28); color: #fff; height: 40px; width: 40px; }
+.photo-viewer-actions a:hover, .photo-viewer-actions button:hover { background: rgba(24,30,27,.92); color: #fff; }
+.photo-viewer-stage .photo-viewer-actions { pointer-events: none; }
+.photo-viewer-stage.photo-actions-visible .photo-viewer-actions { pointer-events: auto; }
+.photo-viewer-actions:focus-within { opacity: 1; pointer-events: auto; transform: translateY(0); }
 .empty-state { align-items: center; border: 1px solid #eceff0; border-radius: 8px; display: flex; flex-direction: column; margin-top: 6px; min-height: 250px; padding: 37px 15px; text-align: center; }
 .empty-icon { align-items: center; background: #edf3ef; border-radius: 50%; color: #6e927e; display: flex; height: 54px; justify-content: center; margin-bottom: 15px; width: 54px; }
 .empty-state h3 { color: #465149; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
