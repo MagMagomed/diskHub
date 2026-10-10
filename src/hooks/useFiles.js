@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { filesApi } from '../services/api.js';
-import { isPhoto } from '../utils/fileUtils.js';
+import { filterFiles } from '../utils/fileUtils.js';
 
 export function useFiles(onError) {
   const [files, setFiles] = useState([]);
@@ -20,12 +20,5 @@ export function useFiles(onError) {
 }
 
 export function useFilteredFiles(files, category, query) {
-  return useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('ru');
-    return files.filter((file) => {
-      const matchesCategory =
-        category === 'all' || (category === 'photos' ? isPhoto(file.name) : !isPhoto(file.name));
-      return matchesCategory && file.name.toLocaleLowerCase('ru').includes(normalizedQuery);
-    });
-  }, [category, files, query]);
+  return useMemo(() => filterFiles(files, category, query), [category, files, query]);
 }

@@ -438,4 +438,36 @@ describe('DiskHub API integration', { concurrency: false }, () => {
     const stored = path.join(testRoot, 'uploads', ids.customer, 'files', file.id);
     assert.equal(await fs.readFile(stored, 'utf8'), 'legacy upload');
   });
+
+  test('DJVU uploads are returned in the all-files listing', async () => {
+    const customer = await login('customer@example.test', 'new-password-123');
+    const started = await request('/api/uploads', {
+      method: 'POST',
+      headers: { cookie: customer.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ fileName: 'справочник.djvu', fileSize: 12 }),
+    });
+    assert.equal(started.status, 201);
+    const { uploadId } = await started.json();
+    const chunk = await request(`/api/uploads/${uploadId}/chunk`, {
+      method: 'PUT',
+      headers: { cookie: customer.cookie, 'content-type': 'application/octet-stream' },
+      body: Buffer.from('djvu-content'),
+    });
+    assert.equal(chunk.status, 200);
+    const complete = await request(`/api/uploads/${uploadId}/complete`, {
+      method: 'POST',
+      headers: { cookie: customer.cookie },
+    });
+    assert.equal(complete.status, 201);
+    const uploadedFile = await complete.json();
+    assert.equal(uploadedFile.name, 'справочник.djvu');
+
+    const listingResponse = await request('/api/files', { headers: { cookie: customer.cookie } });
+    assert.equal(listingResponse.status, 200);
+    const listing = await listingResponse.json();
+    assert.ok(
+      listing.some((file) => file.id === uploadedFile.id && file.name === 'справочник.djvu'),
+      'the uploaded DJVU must remain visible in the all-files list',
+    );
+  });
 });
