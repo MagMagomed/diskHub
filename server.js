@@ -41,11 +41,68 @@ function storedName(filename) {
   return filename.slice(filename.indexOf('__') + 2);
 }
 
+function storageCategory(filename) {
+  return /\.(avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(filename) ? 'photos' : 'files';
+}
+
+function userDirectory(userId) {
+  return path.join(uploadsDir, userId);
+}
+
+async function ensureUserDirectories(userId) {
+  const userDir = userDirectory(userId);
+  const categories = ['photos', 'files'];
+  await Promise.all(categories.map((category) => (
+    fs.promises.mkdir(path.join(userDir, category), { recursive: true })
+  )));
+
+  const entries = await fs.promises.readdir(userDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.includes('__')) continue;
+    const category = storageCategory(storedName(entry.name));
+    await fs.promises.rename(
+      path.join(userDir, entry.name),
+      path.join(userDir, category, entry.name),
+    );
+  }
+}
+
+async function listUserFiles(userId) {
+  const userDir = userDirectory(userId);
+  const categories = ['photos', 'files'];
+  const files = await Promise.all(categories.map(async (category) => {
+    const categoryDir = path.join(userDir, category);
+    let entries;
+    try {
+      entries = await fs.promises.readdir(categoryDir, { withFileTypes: true });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      return [];
+    }
+
+    return Promise.all(
+      entries
+        .filter((entry) => entry.isFile() && entry.name.includes('__'))
+        .map(async (entry) => {
+          const filePath = path.join(categoryDir, entry.name);
+          const stats = await fs.promises.stat(filePath);
+          return {
+            id: entry.name,
+            name: storedName(entry.name),
+            size: stats.size,
+            uploadedAt: stats.mtime.toISOString(),
+          };
+        }),
+    );
+  }));
+  return files.flat().sort((first, second) => second.uploadedAt.localeCompare(first.uploadedAt));
+}
+
 function resolveStoredFile(userId, id) {
   if (typeof id !== 'string' || path.basename(id) !== id || !id.includes('__')) {
     return null;
   }
-  return path.join(uploadsDir, userId, id);
+  return path.join(userDirectory(userId), storageCategory(storedName(id)), id);
 }
 
 function enqueueAccountOperation(operation) {
@@ -162,9 +219,9 @@ function usernameValidationError(username) {
 }
 
 const storage = multer.diskStorage({
-  destination: (req, _file, callback) => {
-    const userDir = path.join(uploadsDir, req.user.id);
-    fs.mkdir(userDir, { recursive: true }, (error) => callback(error, userDir));
+  destination: (req, file, callback) => {
+    const categoryDir = path.join(userDirectory(req.user.id), storageCategory(file.originalname));
+    fs.mkdir(categoryDir, { recursive: true }, (error) => callback(error, categoryDir));
   },
   filename: (_req, file, callback) => {
     callback(null, `${crypto.randomUUID()}__${safeOriginalName(file.originalname)}`);
@@ -228,7 +285,7 @@ app.post('/api/auth/register', async (req, res, next) => {
       const nextUsers = new Map(users);
       nextUsers.set(account.id, account);
 
-      await fs.promises.mkdir(path.join(uploadsDir, account.id), { recursive: true });
+      await ensureUserDirectories(account.id);
       try {
         await persistUsers(nextUsers);
       } catch (error) {
@@ -397,30 +454,11 @@ app.get(
     try {
       const accounts = await Promise.all(
         [...users.values()].map(async (user) => {
-          const userDir = path.join(uploadsDir, user.id);
-          let entries;
-          try {
-            entries = await fs.promises.readdir(userDir, { withFileTypes: true });
-          } catch (error) {
-            if (error.code !== 'ENOENT') throw error;
-            entries = [];
-          }
-
-          const ownedFiles = await Promise.all(
-            entries
-              .filter((entry) => entry.isFile() && entry.name.includes('__'))
-              .map(async (entry) => {
-                const filePath = path.join(userDir, entry.name);
-                const stats = await fs.promises.stat(filePath);
-                return {
-                  id: entry.name,
-                  userId: user.id,
-                  name: storedName(entry.name),
-                  size: stats.size,
-                  uploadedAt: stats.mtime.toISOString(),
-                };
-              }),
-          );
+          await ensureUserDirectories(user.id);
+          const ownedFiles = (await listUserFiles(user.id)).map((file) => ({
+            ...file,
+            userId: user.id,
+          }));
           return { user: publicUser(user), files: ownedFiles };
         }),
       );
@@ -514,25 +552,8 @@ app.delete(
 
 app.get('/api/files', requireUser, async (req, res, next) => {
   try {
-    const userDir = path.join(uploadsDir, req.user.id);
-    await fs.promises.mkdir(userDir, { recursive: true });
-    const entries = await fs.promises.readdir(userDir, { withFileTypes: true });
-    const files = await Promise.all(
-      entries
-        .filter((entry) => entry.isFile() && entry.name.includes('__'))
-        .map(async (entry) => {
-          const filePath = path.join(userDir, entry.name);
-          const stats = await fs.promises.stat(filePath);
-          return {
-            id: entry.name,
-            name: storedName(entry.name),
-            size: stats.size,
-            uploadedAt: stats.mtime.toISOString(),
-          };
-        }),
-    );
-    files.sort((first, second) => second.uploadedAt.localeCompare(first.uploadedAt));
-    res.json(files);
+    await ensureUserDirectories(req.user.id);
+    res.json(await listUserFiles(req.user.id));
   } catch (error) {
     next(error);
   }
@@ -560,7 +581,7 @@ app.post('/api/uploads', requireUser, async (req, res, next) => {
     }
 
     const uploadId = crypto.randomUUID();
-    const incomingDir = path.join(uploadsDir, req.user.id, '.incoming');
+    const incomingDir = path.join(userDirectory(req.user.id), '.incoming');
     await fs.promises.mkdir(incomingDir, { recursive: true });
     const filePath = path.join(incomingDir, `${uploadId}.part`);
     await fs.promises.writeFile(filePath, Buffer.alloc(0), { flag: 'wx' });
@@ -639,8 +660,10 @@ app.post('/api/uploads/:uploadId/complete', requireUser, async (req, res, next) 
   }
 
   const fileId = `${crypto.randomUUID()}__${session.fileName}`;
-  const filePath = path.join(uploadsDir, req.user.id, fileId);
+  const categoryDir = path.join(userDirectory(req.user.id), storageCategory(session.fileName));
+  const filePath = path.join(categoryDir, fileId);
   try {
+    await fs.promises.mkdir(categoryDir, { recursive: true });
     await fs.promises.rename(session.filePath, filePath);
     uploadSessions.delete(req.params.uploadId);
     const stats = await fs.promises.stat(filePath);
@@ -764,12 +787,16 @@ async function startServer() {
     ))) {
       await persistUsers(users);
     }
-    await Promise.all([...users.keys()].map((userId) => (
-      fs.promises.rm(path.join(uploadsDir, userId, '.incoming'), { recursive: true, force: true })
-    )));
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
+  await Promise.all([...users.keys()].map(async (userId) => {
+    await ensureUserDirectories(userId);
+    await fs.promises.rm(path.join(userDirectory(userId), '.incoming'), {
+      recursive: true,
+      force: true,
+    });
+  }));
 
   app.listen(port, '127.0.0.1', () => {
     console.log(`DiskHub server running at http://localhost:${port}`);
