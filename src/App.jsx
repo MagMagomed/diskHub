@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import Icon from './components/Icon.jsx';
+import PhotoViewer from './components/PhotoViewer.jsx';
 import PasswordChangeForm from './components/PasswordChangeForm.jsx';
 import { authApi, filesApi, uploadsApi } from './services/api.js';
 import { categories, formatDate, formatSize, isPhoto } from './utils/fileUtils.js';
@@ -23,6 +24,8 @@ function App() {
   const [profileName, setProfileName] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [viewedPhotoId, setViewedPhotoId] = useState('');
+  const photos = useMemo(() => files.filter((file) => isPhoto(file.name)), [files]);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +53,8 @@ function App() {
   const filteredFiles = useFilteredFiles(files, category, query);
 
   const storageSize = files.reduce((total, file) => total + file.size, 0);
+  const closePhotoViewer = useCallback(() => setViewedPhotoId(''), []);
+  const getPhotoUrl = useCallback((photo) => filesApi.previewUrl(photo.id), []);
 
   async function handleAuthenticated(authenticatedUser, authNotice = '') {
     setUser(authenticatedUser);
@@ -338,7 +343,14 @@ function App() {
                 <article className="file-card" key={file.id}>
                   <div className={`file-preview ${isPhoto(file.name) ? 'photo-preview' : ''}`}>
                     {isPhoto(file.name) ? (
-                      <img src={filesApi.previewUrl(file.id)} alt="" loading="lazy" />
+                      <button
+                        aria-label={`Открыть фотографию ${file.name}`}
+                        className="photo-open-button"
+                        onClick={() => setViewedPhotoId(file.id)}
+                        type="button"
+                      >
+                        <img src={filesApi.previewUrl(file.id)} alt="" loading="lazy" />
+                      </button>
                     ) : (
                       <div className="file-type-icon"><Icon name="file" size={30} /></div>
                     )}
@@ -442,6 +454,15 @@ function App() {
               <PasswordChangeForm />
             </section>
           </div>
+        )}
+        {viewedPhotoId && (
+          <PhotoViewer
+            getImageUrl={getPhotoUrl}
+            onPhotoChange={setViewedPhotoId}
+            onClose={closePhotoViewer}
+            photoId={viewedPhotoId}
+            photos={photos}
+          />
         )}
       </main>
     </div>

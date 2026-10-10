@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Icon from './Icon.jsx';
+import PhotoViewer from './PhotoViewer.jsx';
 import PasswordChangeForm from './PasswordChangeForm.jsx';
 import { adminApi, authApi } from '../services/api.js';
 import { formatDate, formatSize, isPhoto } from '../utils/fileUtils.js';
@@ -13,6 +14,7 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
   const [profileName, setProfileName] = useState(user.username);
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [viewedPhoto, setViewedPhoto] = useState(null);
 
   const matchingUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ru');
@@ -33,6 +35,15 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
   }, [data.files, query]);
 
   const totalBytes = data.files.reduce((total, file) => total + file.size, 0);
+  const photos = matchingFiles.filter((file) => isPhoto(file.name));
+  const closePhotoViewer = useCallback(() => setViewedPhoto(null), []);
+  const changeViewedPhoto = useCallback((nextPhotoId) => {
+    setViewedPhoto(photos.find((photo) => photo.id === nextPhotoId) || null);
+  }, [photos]);
+  const getPhotoUrl = useCallback(
+    (photo) => adminApi.previewUrl(photo.userId, photo.id),
+    [],
+  );
 
   async function saveProfile(event) {
     event.preventDefault();
@@ -208,7 +219,14 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
                   <article className="file-card" key={`${file.userId}:${file.id}`}>
                     <div className={`file-preview ${isPhoto(file.name) ? 'photo-preview' : ''}`}>
                       {isPhoto(file.name) ? (
-                        <img src={adminApi.previewUrl(file.userId, file.id)} alt="" loading="lazy" />
+                        <button
+                          aria-label={`Открыть фотографию ${file.name} пользователя ${file.username}`}
+                          className="photo-open-button"
+                          onClick={() => setViewedPhoto(file)}
+                          type="button"
+                        >
+                          <img src={adminApi.previewUrl(file.userId, file.id)} alt="" loading="lazy" />
+                        </button>
                       ) : (
                         <div className="file-type-icon"><Icon name="file" size={30} /></div>
                       )}
@@ -299,6 +317,16 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
             <PasswordChangeForm />
           </section>
         </div>
+      )}
+      {viewedPhoto && (
+        <PhotoViewer
+          getImageUrl={getPhotoUrl}
+          onPhotoChange={changeViewedPhoto}
+          onClose={closePhotoViewer}
+          ownerLabel={`${viewedPhoto.username} · ${viewedPhoto.email}`}
+          photoId={viewedPhoto.id}
+          photos={photos}
+        />
       )}
     </div>
   );
