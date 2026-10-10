@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import Icon from './Icon.jsx';
-import { getAdjacentPhotoId, getPhotoIndex } from '../utils/photoViewer.js';
+import {
+  getAdjacentPhotoId,
+  getPhotoIndex,
+  getSwipeDirection,
+} from '../utils/photoViewer.js';
 
 function PhotoViewer({
   photos,
@@ -11,6 +15,7 @@ function PhotoViewer({
   ownerLabel = '',
 }) {
   const closeButtonRef = useRef(null);
+  const touchStartRef = useRef(null);
   const photoIndex = getPhotoIndex(photos, photoId);
   const photo = photos[photoIndex];
 
@@ -64,6 +69,25 @@ function PhotoViewer({
     if (nextPhotoId) onPhotoChange(nextPhotoId);
   }
 
+  function handleTouchStart(event) {
+    if (event.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    const [touch] = event.touches;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchEnd(event) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || event.changedTouches.length !== 1) return;
+
+    const [touch] = event.changedTouches;
+    const direction = getSwipeDirection(start, { x: touch.clientX, y: touch.clientY });
+    if (direction) selectPhoto(getAdjacentPhotoId(photos, photoId, direction));
+  }
+
   return (
     <div
       className="photo-viewer-backdrop"
@@ -93,7 +117,12 @@ function PhotoViewer({
             <Icon name="close" size={21} />
           </button>
         </div>
-        <div className="photo-viewer-stage">
+        <div
+          className="photo-viewer-stage"
+          onTouchCancel={() => { touchStartRef.current = null; }}
+          onTouchEnd={handleTouchEnd}
+          onTouchStart={handleTouchStart}
+        >
           <button
             aria-label="Предыдущая фотография"
             className="photo-viewer-nav photo-viewer-previous"
