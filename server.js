@@ -80,27 +80,29 @@ function sessionForRequest(req) {
   return session;
 }
 
-function setSessionCookie(res, sessionId) {
+function setSessionCookie(req, res, sessionId) {
+  const secure = req.hostname.toLowerCase() === 'diskhub.com' ? '; Secure' : '';
   res.setHeader(
     'Set-Cookie',
-    `${sessionCookie}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(sessionLifetime / 1000)}`,
+    `${sessionCookie}=${sessionId}; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=${Math.floor(sessionLifetime / 1000)}`,
   );
 }
 
-function clearSessionCookie(res) {
+function clearSessionCookie(req, res) {
+  const secure = req.hostname.toLowerCase() === 'diskhub.com' ? '; Secure' : '';
   res.setHeader(
     'Set-Cookie',
-    `${sessionCookie}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
+    `${sessionCookie}=; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=0`,
   );
 }
 
-function createSession(userId, res) {
+function createSession(userId, req, res) {
   for (const [id, session] of sessions) {
     if (session.expiresAt <= Date.now()) sessions.delete(id);
   }
   const sessionId = crypto.randomBytes(32).toString('hex');
   sessions.set(sessionId, { userId, expiresAt: Date.now() + sessionLifetime });
-  setSessionCookie(res, sessionId);
+  setSessionCookie(req, res, sessionId);
 }
 
 function requireUser(req, res, next) {
@@ -168,6 +170,10 @@ const upload = multer({
 
 app.use(express.json({ limit: '10kb' }));
 
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.get('/api/auth/me', (req, res) => {
   const session = sessionForRequest(req);
   const user = session ? users.get(session.userId) : null;
@@ -225,7 +231,7 @@ app.post('/api/auth/register', async (req, res, next) => {
       return account;
     });
 
-    createSession(user.id, res);
+    createSession(user.id, req, res);
     res.status(201).json(publicUser(user));
   } catch (error) {
     if (error.status === 409) {
@@ -259,7 +265,7 @@ app.post('/api/auth/login', async (req, res, next) => {
         if (session === previousSession) sessions.delete(id);
       }
     }
-    createSession(user.id, res);
+    createSession(user.id, req, res);
     res.json(publicUser(user));
   } catch (error) {
     next(error);
@@ -303,7 +309,7 @@ app.post('/api/auth/logout', (req, res) => {
       if (storedSession === session) sessions.delete(id);
     }
   }
-  clearSessionCookie(res);
+  clearSessionCookie(req, res);
   res.sendStatus(204);
 });
 
@@ -555,7 +561,7 @@ async function startServer() {
     if (error.code !== 'ENOENT') throw error;
   }
 
-  app.listen(port, () => {
+  app.listen(port, '127.0.0.1', () => {
     console.log(`DiskHub server running at http://localhost:${port}`);
   });
 }
