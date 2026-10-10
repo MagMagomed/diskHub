@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import Icon from './components/Icon.jsx';
+import PhotoPreview from './components/PhotoPreview.jsx';
 import PhotoViewer from './components/PhotoViewer.jsx';
 import PasswordChangeForm from './components/PasswordChangeForm.jsx';
 import { authApi, filesApi, uploadsApi } from './services/api.js';
@@ -341,29 +342,27 @@ function App() {
             <div className="file-grid">
               {filteredFiles.map((file) => (
                 <article className="file-card" key={file.id}>
-                  <div className={`file-preview ${isPhoto(file.name) ? 'photo-preview' : ''}`}>
-                    {isPhoto(file.name) ? (
-                      <button
-                        aria-label={`Открыть фотографию ${file.name}`}
-                        className="photo-open-button"
-                        onClick={() => setViewedPhotoId(file.id)}
-                        type="button"
-                      >
-                        <img src={filesApi.previewUrl(file.id)} alt="" loading="lazy" />
-                      </button>
-                    ) : (
+                  {isPhoto(file.name) ? (
+                    <PhotoPreview
+                      name={file.name}
+                      imageUrl={filesApi.previewUrl(file.id)}
+                      downloadUrl={filesApi.downloadUrl(file.id)}
+                      onOpen={() => setViewedPhotoId(file.id)}
+                      onDelete={() => deleteFile(file)}
+                    />
+                  ) : (
+                    <div className="file-preview">
                       <div className="file-type-icon"><Icon name="file" size={30} /></div>
-                    )}
-                    <div className="card-actions">
-                      <a href={filesApi.downloadUrl(file.id)} aria-label={`Скачать ${file.name}`} title="Скачать">
-                        <Icon name="download" size={17} />
-                      </a>
-                      <button onClick={() => deleteFile(file)} aria-label={`Удалить ${file.name}`} title="Удалить">
-                        <Icon name="trash" size={17} />
-                      </button>
+                      <div className="card-actions">
+                        <a href={filesApi.downloadUrl(file.id)} aria-label={`Скачать ${file.name}`} title="Скачать">
+                          <Icon name="download" size={17} />
+                        </a>
+                        <button onClick={() => deleteFile(file)} aria-label={`Удалить ${file.name}`} title="Удалить">
+                          <Icon name="trash" size={17} />
+                        </button>
+                      </div>
                     </div>
-                    {isPhoto(file.name) && <span className="photo-badge"><Icon name="image" size={15} /></span>}
-                  </div>
+                  )}
                   <div className="file-details">
                     <strong title={file.name}>{file.name}</strong>
                     <span>{formatSize(file.size)} <i>·</i> {formatDate(file.uploadedAt)}</span>

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import Icon from './Icon.jsx';
+import PhotoPreview from './PhotoPreview.jsx';
 import PhotoViewer from './PhotoViewer.jsx';
 import PasswordChangeForm from './PasswordChangeForm.jsx';
 import { adminApi, authApi } from '../services/api.js';
@@ -217,33 +218,34 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
               {matchingFiles.map((file) => {
                 return (
                   <article className="file-card" key={`${file.userId}:${file.id}`}>
-                    <div className={`file-preview ${isPhoto(file.name) ? 'photo-preview' : ''}`}>
-                      {isPhoto(file.name) ? (
-                        <button
-                          aria-label={`Открыть фотографию ${file.name} пользователя ${file.username}`}
-                          className="photo-open-button"
-                          onClick={() => setViewedPhoto(file)}
-                          type="button"
-                        >
-                          <img src={adminApi.previewUrl(file.userId, file.id)} alt="" loading="lazy" />
-                        </button>
-                      ) : (
+                    {isPhoto(file.name) ? (
+                      <PhotoPreview
+                        name={file.name}
+                        imageUrl={adminApi.previewUrl(file.userId, file.id)}
+                        downloadUrl={adminApi.downloadUrl(file.userId, file.id)}
+                        deleteLabel={`Удалить ${file.name} пользователя ${file.username}`}
+                        deleteDisabled={deletingId === file.id}
+                        onOpen={() => setViewedPhoto(file)}
+                        onDelete={() => deleteFile(file)}
+                      />
+                    ) : (
+                      <div className="file-preview">
                         <div className="file-type-icon"><Icon name="file" size={30} /></div>
-                      )}
-                      <div className="card-actions">
-                        <a href={adminApi.downloadUrl(file.userId, file.id)} aria-label={`Скачать ${file.name}`} title="Скачать">
-                          <Icon name="download" size={17} />
-                        </a>
-                        <button
-                          aria-label={`Удалить ${file.name} пользователя ${file.username}`}
-                          disabled={deletingId === file.id}
-                          onClick={() => deleteFile(file)}
-                          title="Удалить"
-                        >
-                          <Icon name="trash" size={17} />
-                        </button>
+                        <div className="card-actions">
+                          <a href={adminApi.downloadUrl(file.userId, file.id)} aria-label={`Скачать ${file.name}`} title="Скачать">
+                            <Icon name="download" size={17} />
+                          </a>
+                          <button
+                            aria-label={`Удалить ${file.name} пользователя ${file.username}`}
+                            disabled={deletingId === file.id}
+                            onClick={() => deleteFile(file)}
+                            title="Удалить"
+                          >
+                            <Icon name="trash" size={17} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div className="file-details">
                       <strong title={file.name}>{file.name}</strong>
                       <span className="admin-owner" title={file.email}>{file.username} · {file.email}</span>
