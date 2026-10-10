@@ -201,13 +201,12 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
 .photo-viewer-close, .photo-viewer-nav { align-items: center; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.16); color: #fff; cursor: pointer; display: flex; justify-content: center; }
 .photo-viewer-close { border-radius: 50%; flex: 0 0 40px; height: 40px; }
 .photo-viewer-close:hover, .photo-viewer-nav:not(:disabled):hover { background: rgba(255,255,255,.24); }
-.photo-viewer-stage { align-items: center; display: flex; flex: 1 1 auto; gap: 18px; justify-content: space-between; min-height: 0; touch-action: pan-y; }
-.photo-viewer-image { height: 100%; min-height: 0; object-fit: contain; width: 100%; }
-.photo-viewer-nav { border-radius: 50%; flex: 0 0 44px; height: 44px; }
+.photo-viewer-stage { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; touch-action: pan-y; }
+.photo-viewer-carousel { height: 100%; inset: 0; overflow: hidden; position: absolute; width: 100%; }
+.photo-viewer-image { height: 100%; left: 0; object-fit: contain; position: absolute; top: 0; width: 100%; }
+.photo-viewer-controls { align-items: center; display: flex; inset: 0; justify-content: space-between; padding: 0 12px; pointer-events: none; position: absolute; }
+.photo-viewer-nav { border-radius: 50%; flex: 0 0 44px; height: 44px; pointer-events: auto; }
 .photo-viewer-nav:disabled { cursor: default; opacity: .28; }
-.photo-viewer-previous { order: 0; }
-.photo-viewer-image { order: 1; }
-.photo-viewer-next { order: 2; }
 .empty-state { align-items: center; border: 1px solid #eceff0; border-radius: 8px; display: flex; flex-direction: column; margin-top: 6px; min-height: 250px; padding: 37px 15px; text-align: center; }
 .empty-icon { align-items: center; background: #edf3ef; border-radius: 50%; color: #6e927e; display: flex; height: 54px; justify-content: center; margin-bottom: 15px; width: 54px; }
 .empty-state h3 { color: #465149; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
@@ -402,6 +401,15 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
   .photo-viewer-nav { flex-basis: 36px; height: 36px; }
   .photo-viewer-caption { gap: 4px 9px; }
   .photo-viewer-caption strong { max-width: 58vw; font-size: 12px; }
+}
+@media (orientation: portrait) {
+  .photo-viewer-backdrop { padding: 0; }
+  .photo-viewer { height: 100vh; height: 100dvh; max-width: none; width: 100vw; }
+  .photo-viewer-toolbar { min-height: calc(50px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0; }
+  .photo-viewer-stage { width: 100vw; }
+  .photo-viewer-carousel { width: 100vw; }
+  .photo-viewer-image { width: 100vw; }
+  .photo-viewer-controls { display: none; }
 }
 @media (max-width: 360px) {
   .admin-topbar { padding-left: 10px; padding-right: 10px; }

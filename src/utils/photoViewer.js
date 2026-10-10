@@ -32,3 +32,28 @@ export function getSwipeDirection(start, end, threshold = 50) {
   }
   return deltaX < 0 ? 1 : -1;
 }
+
+export function getSwipeOffset(start, current, canNavigate) {
+  if (
+    !start
+    || !current
+    || !Number.isFinite(start.x)
+    || !Number.isFinite(start.y)
+    || !Number.isFinite(current.x)
+    || !Number.isFinite(current.y)
+  ) {
+    return 0;
+  }
+
+  const deltaX = current.x - start.x;
+  const deltaY = current.y - start.y;
+  if (Math.abs(deltaX) <= 4 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return 0;
+  return canNavigate ? deltaX : deltaX * 0.25;
+}
+
+export function getSwipeTargetOffset(start, end, viewportWidth, threshold = 50) {
+  if (!Number.isFinite(viewportWidth) || viewportWidth <= 0) return null;
+  const direction = getSwipeDirection(start, end, threshold);
+  if (!direction) return null;
+  return direction > 0 ? -viewportWidth : viewportWidth;
+}
