@@ -107,7 +107,7 @@ test('portrait layout hides arrow controls and uses the full viewport width', as
 });
 
 test('viewer images expose live drag transforms and a settling animation', async () => {
-  const component = await readFile(new URL('../src/components/PhotoViewer.jsx', import.meta.url), 'utf8');
+  const component = await readFile(new URL('../src/components/Photo/PhotoViewer.jsx', import.meta.url), 'utf8');
   assert.match(component, /onTouchMove=\{handleTouchMove\}/);
   assert.match(component, /transform: `translateX\(\$\{dragOffset\}px\)`/);
   assert.match(component, /transform 220ms ease-out/);

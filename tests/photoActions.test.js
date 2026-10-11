@@ -23,8 +23,8 @@ test('malformed tap coordinates are rejected', () => {
 });
 
 test('photo preview opens the image and reuses the shared always-visible actions', async () => {
-  const component = await readFile(new URL('../src/components/PhotoPreview.jsx', import.meta.url), 'utf8');
-  const actions = await readFile(new URL('../src/components/FileActions.jsx', import.meta.url), 'utf8');
+  const component = await readFile(new URL('../src/components/Photo/PhotoPreview.jsx', import.meta.url), 'utf8');
+  const actions = await readFile(new URL('../src/components/File/FileActions.jsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
   assert.match(component, /onClick=\{onOpen\}/);
   assert.match(component, /<FileActions/);
@@ -36,7 +36,7 @@ test('photo preview opens the image and reuses the shared always-visible actions
 });
 
 test('the open viewer reuses the shared actions and keeps tap and hover visibility', async () => {
-  const viewer = await readFile(new URL('../src/components/PhotoViewer.jsx', import.meta.url), 'utf8');
+  const viewer = await readFile(new URL('../src/components/Photo/PhotoViewer.jsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
   assert.match(viewer, /isShortPhotoTap\(start, end, event\.timeStamp - start\.time\)/);
   assert.match(viewer, /setActionsVisible\(true\)/);

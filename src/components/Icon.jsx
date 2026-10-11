@@ -1,5 +1,11 @@
 import React from 'react';
 
+/**
+ * Отображает SVG-иконку из встроенного набора.
+ * @param {object} props
+ * @param {"grid"|"image"|"folder"|"upload"|"search"|"more"|"download"|"trash"|"close"|"file"|"sparkle"|"key"|"edit"|"chevron-left"|"chevron-right"} props.name Ключ иконки из объекта paths компонента.
+ * @param {number} [props.size=20] Ширина и высота иконки в пикселях.
+ */
 function Icon({ name, size = 20 }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,

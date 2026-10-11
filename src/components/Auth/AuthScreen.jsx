@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import Icon from './Icon.jsx';
-import { authApi } from '../services/api.js';
+import AuthForm from './AuthForm.jsx';
+import Icon from '../Icon.jsx';
+import PrimaryButton from '../Buttons/PrimaryButton.jsx';
+import { authApi } from '../../services/api.js';
 
+/**
+ * Показывает формы регистрации и входа, генератор пароля и сохранение учётных
+ * данных браузером; при успехе передаёт пользователя родительскому приложению.
+ * @param {object} props
+ * @param {(user: {id: string, email: string, username: string, role: string}, notice?: string) => Promise<void>|void} props.onAuthenticated Вызывается с объектом пользователя, полученным от API, и необязательным уведомлением.
+ */
 function AuthScreen({ onAuthenticated }) {
   const [mode, setMode] = useState('register');
   const [email, setEmail] = useState('');
@@ -84,7 +92,7 @@ function AuthScreen({ onAuthenticated }) {
             ? 'Зарегистрируйтесь, чтобы хранить файлы в личной папке.'
             : 'Войдите, чтобы открыть свои фотографии и файлы.'}
         </p>
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <AuthForm onSubmit={handleSubmit}>
           {mode === 'register' && (
             <>
               <label htmlFor="auth-username">Имя пользователя</label>
@@ -158,14 +166,14 @@ function AuthScreen({ onAuthenticated }) {
           </button>
           <span className="browser-save-hint">Сначала войдём в аккаунт, затем сохраним пароль.</span>
           {error && <div className="auth-error" role="alert">{error}</div>}
-          <button className="primary-button auth-submit" disabled={submitting} type="submit">
+          <PrimaryButton className="auth-submit" disabled={submitting} type="submit">
             {submitting
               ? 'Подождите…'
               : mode === 'register'
                 ? 'Создать аккаунт'
                 : 'Войти'}
-          </button>
-        </form>
+          </PrimaryButton>
+        </AuthForm>
         <p className="auth-switch">
           {mode === 'register' ? 'Уже есть аккаунт?' : 'Впервые в DiskHub?'}
           {' '}
@@ -181,6 +189,5 @@ function AuthScreen({ onAuthenticated }) {
     </main>
   );
 }
-
 
 export default AuthScreen;

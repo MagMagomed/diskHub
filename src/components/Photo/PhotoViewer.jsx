@@ -1,14 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
-import Icon from './Icon.jsx';
+import Icon from '../Icon.jsx';
 import {
   getAdjacentPhotoId,
   getPhotoIndex,
   getSwipeOffset,
   getSwipeTargetOffset,
-} from '../utils/photoViewer.js';
-import { isShortPhotoTap } from '../utils/photoActions.js';
-import FileActions from './FileActions.jsx';
+} from '../../utils/photoViewer.js';
+import { isShortPhotoTap } from '../../utils/photoActions.js';
+import FileActions from '../File/FileActions.jsx';
 
+/**
+ * Полноэкранный просмотрщик фотографий с навигацией, клавиатурой, свайпами
+ * и действиями над выбранным файлом.
+ * @param {object} props
+ * @param {Array<{id: string, name: string, userId?: string, username?: string, email?: string}>} props.photos Упорядоченный список фотографий; текущий элемент находится по photoId.
+ * @param {string} props.photoId id открытой фотографии.
+ * @param {(photo: object) => string} props.getImageUrl Возвращает URL превью для фотографии.
+ * @param {(photo: object) => string} props.getDownloadUrl Возвращает URL скачивания фотографии.
+ * @param {(photoId: string) => void} props.onPhotoChange Переключает просмотр на фотографию с указанным id.
+ * @param {(photo: object) => void} props.onDelete Удаляет выбранный объект фотографии.
+ * @param {() => void} props.onClose Закрывает просмотрщик.
+ * @param {string} [props.ownerLabel=""] Дополнительная подпись владельца, используется в админ-панели.
+ * @param {boolean} [props.deleteDisabled=false] Блокирует удаление во время выполняющейся операции.
+ */
 function PhotoViewer({
   photos,
   photoId,

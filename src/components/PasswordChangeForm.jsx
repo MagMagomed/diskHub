@@ -1,6 +1,12 @@
 import { useState } from 'react';
+import AuthForm from './Auth/AuthForm.jsx';
+import PrimaryButton from './Buttons/PrimaryButton.jsx';
 import { authApi } from '../services/api.js';
 
+/**
+ * Форма изменения пароля текущего пользователя с подтверждением нового пароля.
+ * Не принимает props; отправляет данные в authApi и показывает результат внутри формы.
+ */
 function PasswordChangeForm() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -35,7 +41,7 @@ function PasswordChangeForm() {
   }
 
   return (
-    <form className="auth-form password-change-form" onSubmit={changePassword}>
+    <AuthForm className="password-change-form" onSubmit={changePassword}>
       <h3>Изменение пароля</h3>
       <label htmlFor="profile-current-password">Текущий пароль</label>
       <input
@@ -73,11 +79,11 @@ function PasswordChangeForm() {
       {error && <div className="auth-error" role="alert">{error}</div>}
       {notice && <div className="password-change-notice" role="status">{notice}</div>}
       <div className="profile-dialog-actions">
-        <button className="primary-button" disabled={saving} type="submit">
+        <PrimaryButton disabled={saving} type="submit">
           {saving ? 'Сохраняем…' : 'Изменить пароль'}
-        </button>
+        </PrimaryButton>
       </div>
-    </form>
+    </AuthForm>
   );
 }
 

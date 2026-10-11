@@ -1,15 +1,36 @@
 import { useCallback, useMemo, useState } from 'react';
-import Icon from './Icon.jsx';
-import FileCard from './FileCard.jsx';
-import FileDetails from './FileDetails.jsx';
-import FilePreview from './FilePreview.jsx';
-import PhotoPreview from './PhotoPreview.jsx';
-import PhotoViewer from './PhotoViewer.jsx';
-import PasswordChangeForm from './PasswordChangeForm.jsx';
-import { adminApi, authApi } from '../services/api.js';
-import { formatSize, isPhoto } from '../utils/fileUtils.js';
-import { useAdminData } from '../hooks/useAdminData.js';
+import AdminContent from './AdminContent.jsx';
+import AdminEmpty from './AdminEmpty.jsx';
+import AdminFileGrid from './AdminFileGrid.jsx';
+import AdminHeading from './AdminHeading.jsx';
+import AdminSection from './AdminSection.jsx';
+import AdminShell from './AdminShell.jsx';
+import AdminStats from './AdminStats.jsx';
+import AdminTopbar from './AdminTopbar.jsx';
+import AuthForm from '../Auth/AuthForm.jsx';
+import Icon from '../Icon.jsx';
+import FileCard from '../File/FileCard.jsx';
+import FileDetails from '../File/FileDetails.jsx';
+import FilePreview from '../File/FilePreview.jsx';
+import PrimaryButton from '../Buttons/PrimaryButton.jsx';
+import ProfileDialogBackdrop from '../Profile/ProfileDialogBackdrop.jsx';
+import ProfileDialogClose from '../Profile/ProfileDialogClose.jsx';
+import ProfileDialogTitle from '../Profile/ProfileDialogTitle.jsx';
+import PhotoPreview from '../Photo/PhotoPreview.jsx';
+import PhotoViewer from '../Photo/PhotoViewer.jsx';
+import PasswordChangeForm from '../PasswordChangeForm.jsx';
+import { adminApi, authApi } from '../../services/api.js';
+import { formatSize, isPhoto } from '../../utils/fileUtils.js';
+import { useAdminData } from '../../hooks/useAdminData.js';
 
+/**
+ * Административная панель для поиска пользователей и файлов, просмотра статистики,
+ * редактирования профиля и удаления файлов владельцев.
+ * @param {object} props
+ * @param {{id: string, username: string, email: string, role: string}} props.user Текущий пользователь с ролью System Customizer.
+ * @param {(user: object) => void} props.onUserUpdated Передаёт родителю обновлённые данные пользователя.
+ * @param {() => void} props.onLogout Завершает текущий сеанс.
+ */
 function AdminDashboard({ user, onUserUpdated, onLogout }) {
   const { data, setData, error, setError, loading } = useAdminData();
   const [query, setQuery] = useState('');
@@ -106,44 +127,18 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
   }
 
   return (
-    <div className="admin-shell">
-      <header className="admin-topbar">
-        <a className="brand" href="/" aria-label="DiskHub — главная">
-          <span className="brand-mark"><Icon name="folder" size={21} /></span>
-          <span>disk<span>hub</span></span>
-        </a>
-        <div className="admin-account">
-          <span className="admin-role-badge">{user.role}</span>
-          <span className="user-label" title={user.email}>{user.username}</span>
-          <button
-            aria-label="Настройки профиля"
-            className="profile-edit-button"
-            onClick={() => { setProfileName(user.username); setProfileError(''); setProfileOpen(true); }}
-            title="Настройки профиля"
-            type="button"
-          >
-            <Icon name="edit" size={15} />
-          </button>
-          <button className="logout-button" onClick={onLogout}>Выйти</button>
-        </div>
-      </header>
-      <main className="admin-content">
-        <div className="eyebrow">АДМИНИСТРИРОВАНИЕ</div>
-        <div className="admin-heading">
-          <div>
-            <h1>Все данные приложения</h1>
-            <p className="page-subtitle">Пользователи, их роли и файлы в личных хранилищах.</p>
-          </div>
-          <label className="search-box admin-search">
-            <Icon name="search" size={18} />
-            <input
-              aria-label="Поиск пользователей и файлов"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Имя, почта или файл"
-              value={query}
-            />
-          </label>
-        </div>
+    <AdminShell>
+      <AdminTopbar
+        user={user}
+        onProfileEdit={() => {
+          setProfileName(user.username);
+          setProfileError('');
+          setProfileOpen(true);
+        }}
+        onLogout={onLogout}
+      />
+      <AdminContent>
+        <AdminHeading query={query} onQueryChange={setQuery} />
 
         {error && (
           <div className="message message-error" role="alert">
@@ -154,31 +149,11 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
           </div>
         )}
 
-        <section aria-label="Статистика приложения" className="admin-stats">
-          <article className="admin-stat-card">
-            <span>Пользователи</span><strong>{data.users.length}</strong>
-          </article>
-          <article className="admin-stat-card">
-            <span>Все файлы</span><strong>{data.files.length}</strong>
-          </article>
-          <article className="admin-stat-card">
-            <span>Общий размер файлов</span><strong>{formatSize(totalBytes)}</strong>
-          </article>
-          <article className="admin-stat-card">
-            <span>Администраторы</span>
-            <strong>{data.users.filter((account) => account.role === 'System Customizer').length}</strong>
-          </article>
-        </section>
+        <AdminStats users={data.users} files={data.files} totalBytes={totalBytes} />
 
-        <section className="admin-section">
-          <div className="admin-section-heading">
-            <div>
-              <h2>Пользователи</h2>
-              <span className="section-caption">{matchingUsers.length} аккаунтов</span>
-            </div>
-          </div>
+        <AdminSection title="Пользователи" caption={`${matchingUsers.length} аккаунтов`}>
           {loading ? (
-            <div className="admin-empty">Загружаем аккаунты…</div>
+            <AdminEmpty>Загружаем аккаунты…</AdminEmpty>
           ) : matchingUsers.length ? (
             <div className="users-table-wrap">
               <table className="users-table">
@@ -203,21 +178,18 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
               </table>
             </div>
           ) : (
-            <div className="admin-empty">{query ? 'Пользователи не найдены.' : 'Пользователей пока нет.'}</div>
+            <AdminEmpty>{query ? 'Пользователи не найдены.' : 'Пользователей пока нет.'}</AdminEmpty>
           )}
-        </section>
+        </AdminSection>
 
-        <section className="admin-section">
-          <div className="admin-section-heading">
-            <div>
-              <h2>Файлы всех пользователей</h2>
-              <span className="section-caption">{matchingFiles.length} файлов · {formatSize(totalBytes)} всего</span>
-            </div>
-          </div>
+        <AdminSection
+          title="Файлы всех пользователей"
+          caption={`${matchingFiles.length} файлов · ${formatSize(totalBytes)} всего`}
+        >
           {loading ? (
-            <div className="admin-empty">Загружаем файлы…</div>
+            <AdminEmpty>Загружаем файлы…</AdminEmpty>
           ) : matchingFiles.length ? (
-            <div className="admin-file-grid">
+            <AdminFileGrid>
               {matchingFiles.map((file) => {
                 return (
                   <FileCard key={`${file.userId}:${file.id}`}>
@@ -250,25 +222,20 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
                   </FileCard>
                 );
               })}
-            </div>
+            </AdminFileGrid>
           ) : (
-            <div className="admin-empty">
+            <AdminEmpty>
               {query ? 'Файлы не найдены.' : 'В хранилищах пока нет файлов.'}
-            </div>
+            </AdminEmpty>
           )}
-        </section>
+        </AdminSection>
         <footer className="page-footer">
           <span><span className="status-dot" /> Доступ с правами System Customizer</span>
           <span>DiskHub · Панель администратора</span>
         </footer>
-      </main>
+      </AdminContent>
       {profileOpen && (
-        <div
-          className="profile-dialog-backdrop"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setProfileOpen(false);
-          }}
-        >
+        <ProfileDialogBackdrop onClose={() => setProfileOpen(false)}>
           <section
             aria-labelledby="admin-profile-title"
             aria-modal="true"
@@ -278,18 +245,11 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
             }}
             role="dialog"
           >
-            <button
-              aria-label="Закрыть"
-              className="profile-dialog-close"
-              onClick={() => setProfileOpen(false)}
-              type="button"
-            >
-              <Icon name="close" size={18} />
-            </button>
+            <ProfileDialogClose onClose={() => setProfileOpen(false)} />
             <div className="auth-eyebrow">ЛИЧНЫЙ ПРОФИЛЬ</div>
-            <h2 id="admin-profile-title">Имя пользователя</h2>
+            <ProfileDialogTitle id="admin-profile-title">Имя пользователя</ProfileDialogTitle>
             <p className="profile-dialog-description">Это имя отображается в панели управления.</p>
-            <form className="auth-form" onSubmit={saveProfile}>
+            <AuthForm onSubmit={saveProfile}>
               <label htmlFor="admin-profile-username">Имя пользователя</label>
               <input
                 autoFocus
@@ -307,14 +267,14 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
                 <button className="profile-cancel-button" onClick={() => setProfileOpen(false)} type="button">
                   Отмена
                 </button>
-                <button className="primary-button" disabled={profileSaving} type="submit">
+                <PrimaryButton disabled={profileSaving} type="submit">
                   {profileSaving ? 'Сохраняем…' : 'Сохранить'}
-                </button>
+                </PrimaryButton>
               </div>
-            </form>
+            </AuthForm>
             <PasswordChangeForm />
           </section>
-        </div>
+        </ProfileDialogBackdrop>
       )}
       {viewedPhoto && (
         <PhotoViewer
@@ -329,7 +289,7 @@ function AdminDashboard({ user, onUserUpdated, onLogout }) {
           photos={photos}
         />
       )}
-    </div>
+    </AdminShell>
   );
 }
 

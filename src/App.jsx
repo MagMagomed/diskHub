@@ -1,17 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AdminDashboard from './components/AdminDashboard.jsx';
-import AuthScreen from './components/AuthScreen.jsx';
-import FileCard from './components/FileCard.jsx';
-import FileDetails from './components/FileDetails.jsx';
-import FilePreview from './components/FilePreview.jsx';
+import AdminDashboard from './components/Admin/AdminDashboard.jsx';
+import AuthScreen from './components/Auth/AuthScreen.jsx';
+import AuthForm from './components/Auth/AuthForm.jsx';
+import FileGrid from './components/File/FileGrid.jsx';
+import FilesToolbar from './components/File/FilesToolbar.jsx';
+import MainContent from './components/MainContent.jsx';
+import MobileNavigation from './components/MobileNavigation.jsx';
+import PageContent from './components/PageContent.jsx';
+import PageHeading from './components/PageHeading.jsx';
+import PrimaryButton from './components/Buttons/PrimaryButton.jsx';
+import ProfileDialogBackdrop from './components/Profile/ProfileDialogBackdrop.jsx';
+import ProfileDialogClose from './components/Profile/ProfileDialogClose.jsx';
+import ProfileDialogTitle from './components/Profile/ProfileDialogTitle.jsx';
+import Sidebar from './components/Sidebar.jsx';
+import Topbar from './components/Topbar.jsx';
+import FileCard from './components/File/FileCard.jsx';
+import FileDetails from './components/File/FileDetails.jsx';
+import FilePreview from './components/File/FilePreview.jsx';
 import Icon from './components/Icon.jsx';
-import PhotoPreview from './components/PhotoPreview.jsx';
-import PhotoViewer from './components/PhotoViewer.jsx';
+import PhotoPreview from './components/Photo/PhotoPreview.jsx';
+import PhotoViewer from './components/Photo/PhotoViewer.jsx';
 import PasswordChangeForm from './components/PasswordChangeForm.jsx';
 import { authApi, filesApi, uploadsApi } from './services/api.js';
-import { categories, formatSize, isPhoto } from './utils/fileUtils.js';
+import { categories, isPhoto } from './utils/fileUtils.js';
 import { useFilteredFiles, useFiles } from './hooks/useFiles.js';
 
+/**
+ * Основное приложение DiskHub: управляет аутентификацией, библиотекой файлов,
+ * загрузкой, профилем пользователя и маршрутизацией между пользовательской
+ * и административной панелями.
+ * Внешние параметры не принимает; данные получает через API и локальные хуки.
+ */
 function App() {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
@@ -209,82 +228,36 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="/" aria-label="DiskHub — главная">
-          <span className="brand-mark"><Icon name="folder" size={21} /></span>
-          <span>disk<span>hub</span></span>
-        </a>
+      <Sidebar
+        categories={categories}
+        category={category}
+        onCategoryChange={setCategory}
+        fileCount={files.length}
+        storageSize={storageSize}
+      />
 
-        <div className="sidebar-section-label">БИБЛИОТЕКА</div>
-        <nav className="navigation" aria-label="Разделы файлов">
-          {categories.map((item) => (
-            <button
-              className={`nav-item ${category === item.id ? 'active' : ''}`}
-              key={item.id}
-              onClick={() => setCategory(item.id)}
-            >
-              <Icon name={item.id === 'all' ? 'grid' : item.id === 'photos' ? 'image' : 'file'} />
-              <span>{item.label}</span>
-              {item.id === 'all' && <span className="nav-count">{files.length}</span>}
-            </button>
-          ))}
-        </nav>
+      <MainContent>
+        <Topbar user={user} onProfileEdit={openProfileEditor} onLogout={logout} />
 
-        <div className="sidebar-bottom">
-          <div className="storage-heading">
-            <span>Моё хранилище</span>
-            <span>{formatSize(storageSize)}</span>
-          </div>
-          <div className="storage-track"><span /></div>
-          <p>Файлы хранятся на этом устройстве</p>
-          <div className="storage-location"><span className="status-dot" /> Личная папка аккаунта</div>
-        </div>
-      </aside>
+        <PageContent>
+          <MobileNavigation
+            categories={categories}
+            category={category}
+            onCategoryChange={setCategory}
+            fileCount={files.length}
+          />
 
-      <main className="main-content">
-        <header className="topbar">
-          <div className="breadcrumb"><span>Мои файлы</span><span className="breadcrumb-divider">/</span><strong>Все файлы</strong></div>
-          <div className="topbar-right">
-            <div className="avatar">{user.username[0].toLocaleUpperCase('ru')}</div>
-            <span className="user-label" title={user.email}>{user.username}</span>
-            <button
-              className="profile-edit-button"
-              onClick={openProfileEditor}
-              aria-label="Настройки профиля"
-              title="Настройки профиля"
-              type="button"
-            >
-              <Icon name="edit" size={15} />
-            </button>
-            <button className="logout-button" onClick={logout}>Выйти</button>
-          </div>
-        </header>
-
-        <section className="page-content">
-          <nav className="mobile-navigation" aria-label="Разделы файлов">
-            {categories.map((item) => (
-              <button
-                className={`nav-item ${category === item.id ? 'active' : ''}`}
-                key={item.id}
-                onClick={() => setCategory(item.id)}
-              >
-                <Icon name={item.id === 'all' ? 'grid' : item.id === 'photos' ? 'image' : 'file'} size={17} />
-                <span>{item.label}</span>
-                {item.id === 'all' && <span className="nav-count">{files.length}</span>}
-              </button>
-            ))}
-          </nav>
-
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow">ВАШЕ ПРОСТРАНСТВО</div>
-              <h1>Все файлы</h1>
-              <p className="page-subtitle">Фотографии и документы — всё в одном месте.</p>
-            </div>
-            <button className="primary-button" onClick={() => inputRef.current?.click()} disabled={uploading}>
-              <Icon name="upload" size={18} />
-              {uploading ? 'Загружаем…' : 'Загрузить файлы'}
-            </button>
+          <PageHeading
+            eyebrow="ВАШЕ ПРОСТРАНСТВО"
+            title="Все файлы"
+            subtitle="Фотографии и документы — всё в одном месте."
+            action={(
+              <PrimaryButton onClick={() => inputRef.current?.click()} disabled={uploading}>
+                <Icon name="upload" size={18} />
+                {uploading ? 'Загружаем…' : 'Загрузить файлы'}
+              </PrimaryButton>
+            )}
+          >
             <input
               ref={inputRef}
               className="visually-hidden"
@@ -292,7 +265,7 @@ function App() {
               multiple
               onChange={(event) => uploadFiles(Array.from(event.target.files || []))}
             />
-          </div>
+          </PageHeading>
 
           <section
             className={`dropzone ${dragging ? 'dragging' : ''}`}
@@ -324,25 +297,15 @@ function App() {
             </div>
           )}
 
-          <div className="files-toolbar">
-            <div>
-              <h2>Недавно добавленные</h2>
-              <span className="section-caption">{files.length} {files.length === 1 ? 'файл' : 'файлов'} в хранилище</span>
-            </div>
-            <label className="search-box">
-              <Icon name="search" size={18} />
-              <input
-                aria-label="Поиск по файлам"
-                placeholder="Найти файл"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              {query && <button aria-label="Очистить поиск" onClick={() => setQuery('')}><Icon name="close" size={15} /></button>}
-            </label>
-          </div>
+          <FilesToolbar
+            title="Недавно добавленные"
+            caption={`${files.length} ${files.length === 1 ? 'файл' : 'файлов'} в хранилище`}
+            query={query}
+            onQueryChange={setQuery}
+          />
 
           {filteredFiles.length > 0 ? (
-            <div className="file-grid">
+            <FileGrid>
               {filteredFiles.map((file) => (
                 <FileCard key={file.id}>
                   {isPhoto(file.name) ? (
@@ -367,7 +330,7 @@ function App() {
                   />
                 </FileCard>
               ))}
-            </div>
+            </FileGrid>
           ) : (
             <div className="empty-state">
               <div className="empty-icon"><Icon name={query ? 'search' : 'folder'} size={27} /></div>
@@ -391,14 +354,9 @@ function App() {
             <span><span className="status-dot" /> Ваши файлы доступны только на этом устройстве</span>
             <span>DiskHub · Простое хранение</span>
           </footer>
-        </section>
+        </PageContent>
         {profileOpen && (
-          <div
-            className="profile-dialog-backdrop"
-            onClick={(event) => {
-              if (event.target === event.currentTarget) setProfileOpen(false);
-            }}
-          >
+          <ProfileDialogBackdrop onClose={() => setProfileOpen(false)}>
             <section
               aria-labelledby="profile-dialog-title"
               aria-modal="true"
@@ -408,20 +366,13 @@ function App() {
               }}
               role="dialog"
             >
-              <button
-                aria-label="Закрыть"
-                className="profile-dialog-close"
-                onClick={() => setProfileOpen(false)}
-                type="button"
-              >
-                <Icon name="close" size={18} />
-              </button>
+              <ProfileDialogClose onClose={() => setProfileOpen(false)} />
               <div className="auth-eyebrow">ЛИЧНЫЙ ПРОФИЛЬ</div>
-              <h2 id="profile-dialog-title">Имя пользователя</h2>
+              <ProfileDialogTitle id="profile-dialog-title">Имя пользователя</ProfileDialogTitle>
               <p className="profile-dialog-description">
                 Это имя отображается в вашем личном пространстве.
               </p>
-              <form className="auth-form" onSubmit={saveProfile}>
+              <AuthForm onSubmit={saveProfile}>
                 <label htmlFor="profile-username">Имя пользователя</label>
                 <input
                   autoFocus
@@ -443,14 +394,14 @@ function App() {
                   >
                     Отмена
                   </button>
-                  <button className="primary-button" disabled={profileSaving} type="submit">
+                  <PrimaryButton disabled={profileSaving} type="submit">
                     {profileSaving ? 'Сохраняем…' : 'Сохранить'}
-                  </button>
+                  </PrimaryButton>
                 </div>
-              </form>
+              </AuthForm>
               <PasswordChangeForm />
             </section>
-          </div>
+          </ProfileDialogBackdrop>
         )}
         {viewedPhotoId && (
           <PhotoViewer
@@ -463,7 +414,7 @@ function App() {
             photos={photos}
           />
         )}
-      </main>
+      </MainContent>
     </div>
   );
 }
