@@ -7,6 +7,7 @@ import {
   getSwipeTargetOffset,
 } from '../utils/photoViewer.js';
 import { isShortPhotoTap } from '../utils/photoActions.js';
+import FileActions from './FileActions.jsx';
 
 function PhotoViewer({
   photos,
@@ -265,24 +266,15 @@ function PhotoViewer({
               <Icon name="chevron-right" size={25} />
             </button>
           </div>
-          <div className="card-actions photo-viewer-actions">
-            <a
-              aria-label={`Скачать ${photo.name}`}
-              href={getDownloadUrl(photo)}
-              title="Скачать"
-            >
-              <Icon name="download" size={19} />
-            </a>
-            <button
-              aria-label={`Удалить ${photo.name}${ownerLabel ? ` пользователя ${ownerLabel}` : ''}`}
-              disabled={deleteDisabled}
-              onClick={() => onDelete(photo)}
-              title="Удалить"
-              type="button"
-            >
-              <Icon name="trash" size={19} />
-            </button>
-          </div>
+          <FileActions
+            className="photo-viewer-actions"
+            name={photo.name}
+            downloadUrl={getDownloadUrl(photo)}
+            onDelete={() => onDelete(photo)}
+            deleteLabel={`Удалить ${photo.name}${ownerLabel ? ` пользователя ${ownerLabel}` : ''}`}
+            deleteDisabled={deleteDisabled}
+            size={19}
+          />
         </div>
       </section>
     </div>

@@ -182,13 +182,11 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
 .photo-open-button:focus-visible { outline: 3px solid #76a48b; outline-offset: -3px; }
 .photo-preview:hover .photo-open-button img { transform: scale(1.035); }
 .file-type-icon { align-items: center; background: #e5ece8; border-radius: 50%; color: #6e9682; display: flex; height: 63px; justify-content: center; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 63px; }
-.card-actions { display: flex; gap: 6px; opacity: 0; position: absolute; right: 9px; top: 9px; transform: translateY(-3px); transition: opacity .15s, transform .15s; }
-.file-card:focus-within .card-actions, .photo-actions-visible .card-actions { opacity: 1; transform: translateY(0); }
+.card-actions { display: flex; gap: 6px; opacity: 1; position: absolute; right: 9px; top: 9px; transform: none; }
 .card-actions a, .card-actions button { align-items: center; backdrop-filter: blur(6px); background: rgba(255,255,255,.91); border: 0; border-radius: 6px; color: #55635c; cursor: pointer; display: flex; height: 30px; justify-content: center; text-decoration: none; width: 30px; }
 .card-actions a:hover, .card-actions button:hover { background: #fff; color: var(--green); }
 .photo-badge { align-items: center; background: rgba(255,255,255,.88); border-radius: 5px; bottom: 8px; color: #648c77; display: flex; height: 25px; justify-content: center; left: 8px; position: absolute; width: 25px; }
 @media (hover: hover) and (pointer: fine) {
-  .file-card:hover .card-actions { opacity: 1; transform: translateY(0); }
   .photo-viewer-stage:hover .photo-viewer-actions { opacity: 1; transform: translateY(0); pointer-events: auto; }
 }
 .file-details { display: flex; flex-direction: column; gap: 6px; padding: 10px 2px 0; }
@@ -214,7 +212,7 @@ h1 { color: #252d32; font-family: 'Manrope', sans-serif; font-size: 30px; font-w
 .photo-viewer-actions { right: 16px; top: 16px; z-index: 3; }
 .photo-viewer-actions a, .photo-viewer-actions button { background: rgba(24,30,27,.72); border: 1px solid rgba(255,255,255,.28); color: #fff; height: 40px; width: 40px; }
 .photo-viewer-actions a:hover, .photo-viewer-actions button:hover { background: rgba(24,30,27,.92); color: #fff; }
-.photo-viewer-stage .photo-viewer-actions { pointer-events: none; }
+.photo-viewer-stage .photo-viewer-actions { opacity: 0; pointer-events: none; transform: translateY(-3px); transition: opacity .15s, transform .15s; }
 .photo-viewer-stage.photo-actions-visible .photo-viewer-actions { pointer-events: auto; }
 .photo-viewer-actions:focus-within { opacity: 1; pointer-events: auto; transform: translateY(0); }
 .empty-state { align-items: center; border: 1px solid #eceff0; border-radius: 8px; display: flex; flex-direction: column; margin-top: 6px; min-height: 250px; padding: 37px 15px; text-align: center; }

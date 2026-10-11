@@ -22,24 +22,30 @@ test('malformed tap coordinates are rejected', () => {
   assert.equal(isShortPhotoTap({ x: Number.NaN, y: 1 }, { x: 2, y: 2 }, 100), false);
 });
 
-test('photo preview only opens the image and no longer owns file actions', async () => {
+test('photo preview opens the image and reuses the shared always-visible actions', async () => {
   const component = await readFile(new URL('../src/components/PhotoPreview.jsx', import.meta.url), 'utf8');
+  const actions = await readFile(new URL('../src/components/FileActions.jsx', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
   assert.match(component, /onClick=\{onOpen\}/);
-  assert.doesNotMatch(component, /card-actions|downloadUrl|onDelete/);
+  assert.match(component, /<FileActions/);
+  assert.match(component, /downloadUrl=\{downloadUrl\}/);
+  assert.match(component, /onDelete=\{onDelete\}/);
+  assert.match(actions, /<DownloadButton/);
+  assert.match(actions, /<DeleteButton/);
+  assert.match(styles, /\.card-actions\s*\{[^}]*opacity:\s*1/);
 });
 
-test('the open viewer owns touch and hover file actions', async () => {
+test('the open viewer reuses the shared actions and keeps tap and hover visibility', async () => {
   const viewer = await readFile(new URL('../src/components/PhotoViewer.jsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
   assert.match(viewer, /isShortPhotoTap\(start, end, event\.timeStamp - start\.time\)/);
   assert.match(viewer, /setActionsVisible\(true\)/);
-  assert.match(viewer, /if \(isShortPhotoTap[\s\S]*?setDragOffset\(0\)/);
-  assert.match(viewer, /href=\{getDownloadUrl\(photo\)\}/);
-  assert.match(viewer, /onClick=\{\(\) => onDelete\(photo\)\}/);
-  assert.match(viewer, /disabled=\{deleteDisabled\}/);
+  assert.match(viewer, /<FileActions/);
+  assert.match(viewer, /downloadUrl=\{getDownloadUrl\(photo\)\}/);
+  assert.match(viewer, /onDelete=\{\(\) => onDelete\(photo\)\}/);
   assert.match(viewer, /photo-viewer-actions/);
-  assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.file-card:hover \.card-actions/);
+  assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.photo-viewer-stage:hover \.photo-viewer-actions/);
   assert.match(styles, /\.photo-viewer-stage:hover \.photo-viewer-actions/);
   assert.match(styles, /\.photo-viewer-stage\.photo-actions-visible \.photo-viewer-actions/);
-  assert.doesNotMatch(styles, /\.card-actions\s*\{\s*opacity:\s*1;\s*transform:\s*none;/);
+  assert.match(styles, /\.photo-viewer-stage \.photo-viewer-actions\s*\{[^}]*opacity:\s*0/);
 });
