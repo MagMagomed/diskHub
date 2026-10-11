@@ -46,6 +46,9 @@ test('the open viewer reuses the shared actions and keeps tap and hover visibili
   assert.match(viewer, /photo-viewer-actions/);
   assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)\s*\{[\s\S]*?\.photo-viewer-stage:hover \.photo-viewer-actions/);
   assert.match(styles, /\.photo-viewer-stage:hover \.photo-viewer-actions/);
-  assert.match(styles, /\.photo-viewer-stage\.photo-actions-visible \.photo-viewer-actions/);
+  assert.match(
+    styles,
+    /\.photo-viewer-stage\.photo-actions-visible \.photo-viewer-actions\s*\{[^}]*opacity:\s*1[^}]*pointer-events:\s*auto[^}]*transform:\s*translateY\(0\)/,
+  );
   assert.match(styles, /\.photo-viewer-stage \.photo-viewer-actions\s*\{[^}]*opacity:\s*0/);
 });
