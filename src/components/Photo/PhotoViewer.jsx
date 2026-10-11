@@ -39,6 +39,7 @@ function PhotoViewer({
   const stageRef = useRef(null);
   const pendingPhotoIdRef = useRef(null);
   const transitionTimeoutRef = useRef(null);
+  const actionsTimeoutRef = useRef(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [settling, setSettling] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
@@ -81,6 +82,7 @@ function PhotoViewer({
 
     return () => {
       window.clearTimeout(transitionTimeoutRef.current);
+      window.clearTimeout(actionsTimeoutRef.current);
       if (previouslyFocusedElement instanceof HTMLElement && previouslyFocusedElement.isConnected) {
         previouslyFocusedElement.focus();
       }
@@ -89,6 +91,8 @@ function PhotoViewer({
 
   useEffect(() => {
     setActionsVisible(false);
+    window.clearTimeout(actionsTimeoutRef.current);
+    actionsTimeoutRef.current = null;
   }, [photoId]);
 
   if (!photo) return null;
@@ -135,6 +139,14 @@ function PhotoViewer({
     if (isShortPhotoTap(start, end, event.timeStamp - start.time)) {
       setDragOffset(0);
       setActionsVisible(true);
+      window.clearTimeout(actionsTimeoutRef.current);
+      actionsTimeoutRef.current = null;
+      if (window.matchMedia('(orientation: portrait)').matches) {
+        actionsTimeoutRef.current = window.setTimeout(() => {
+          setActionsVisible(false);
+          actionsTimeoutRef.current = null;
+        }, 5000);
+      }
       return;
     }
     const targetOffset = getSwipeTargetOffset(

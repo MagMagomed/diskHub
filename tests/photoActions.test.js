@@ -40,6 +40,9 @@ test('the open viewer reuses the shared actions and keeps tap and hover visibili
   const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
   assert.match(viewer, /isShortPhotoTap\(start, end, event\.timeStamp - start\.time\)/);
   assert.match(viewer, /setActionsVisible\(true\)/);
+  assert.match(viewer, /matchMedia\('\(orientation: portrait\)'\)\.matches/);
+  assert.match(viewer, /window\.setTimeout\(\(\) => \{[\s\S]*?setActionsVisible\(false\);[\s\S]*?\}, 5000\)/);
+  assert.match(viewer, /window\.clearTimeout\(actionsTimeoutRef\.current\)/);
   assert.match(viewer, /<FileActions/);
   assert.match(viewer, /downloadUrl=\{getDownloadUrl\(photo\)\}/);
   assert.match(viewer, /onDelete=\{\(\) => onDelete\(photo\)\}/);
